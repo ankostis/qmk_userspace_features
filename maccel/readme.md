@@ -80,10 +80,14 @@ Before configuring maccel, make sure you have turned off your OS acceleration se
 
 Several characteristics of the acceleration curve can be tweaked by adding relevant defines to `config.h`:
 ```c
-#define MACCEL_TAKEOFF 2.0      // lower/higher value = curve takes off more smoothly/abruptly
-#define MACCEL_GROWTH_RATE 0.25 // lower/higher value = curve reaches its upper limit slower/faster 
-#define MACCEL_OFFSET 2.2       // lower/higher value = acceleration kicks in earlier/later
-#define MACCEL_LIMIT 0.2        // lower limit of accel curve (minimum acceleration factor)
+/**
+ * Mouse Acceleration Curve parameters to map input-velocity [0, 10+] 
+ * to a velocity-factor [1, 5], as seen in https://www.desmos.com/calculator/k9vr0y2gev
+ */
+#define MACCEL_TAKEOFF 2.0      // (K) lower/higher value = curve takes off more smoothly/abruptly
+#define MACCEL_GROWTH_RATE 0.25 // (G) lower/higher value = curve reaches its upper limit slower/faster 
+#define MACCEL_OFFSET 2.2       // (S) lower/higher value = acceleration kicks in earlier/later
+#define MACCEL_LIMIT 0.2        // (M) lower limit of accel curve (minimum acceleration factor)
 ```
 [![](assets/accel_curve.png)](https://www.desmos.com/calculator/k9vr0y2gev)
 
