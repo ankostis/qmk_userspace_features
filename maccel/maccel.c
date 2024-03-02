@@ -154,14 +154,20 @@ report_mouse_t pointing_device_task_maccel(report_mouse_t mouse_report) {
     // const float velocity_out = velocity * maccel_factor;
     // printf("MACCEL: DPI:%4i Tko: %.3f Grw: %.3f Ofs: %.3f Lmt: %.3f | Fct: %.3f v.in: %.3f v.out: %.3f d.in: %3i d.out: %3i\n", device_cpi, g_maccel_config.takeoff, g_maccel_config.growth_rate, g_maccel_config.offset, g_maccel_config.limit, maccel_factor, velocity, velocity_out, CONSTRAIN_REPORT(distance), CONSTRAIN_REPORT(distance_out));
 
-    static float max_v_in, max_v_sc, max_a;
+    static uint16_t min_t, max_t;
+    static float max_d, max_v_in, max_v_sc, max_a;
+    if (delta_time < min_t) min_t = delta_time;
+    if (delta_time < 80 && delta_time > max_t) max_t = delta_time;
+    if (distance > max_d) max_d = distance;
     if (velocity_raw > max_v_in) max_v_in = velocity_raw;
     if (velocity > max_v_sc) max_v_sc = velocity;
     if (maccel_factor > max_a) max_a = maccel_factor;
     if (delta_time > MACCEL_CPI_THROTTLE_MS) {
-        device_cpi = pointing_device_get_cpi();
-        printf("MACCEL: DPI: %4i max.vin: %.3f max.vsc: %.3f max.a: %3f\n", device_cpi, max_v_in, max_v_sc, max_a);
-        max_v_in = max_v_sc = max_a = 0;
+        printf("MACCEL: DPI: %4i min.t: %4i max.t: %4i max.d: %.3f max.vin: %.3f max.vsc: %.3f max.a: %3f\n", \
+        device_cpi, min_t, max_t, max_d, max_v_in, max_v_sc, max_a);
+
+        min_t = 1<<15;
+        max_t = max_d = max_v_in = max_v_sc = max_a = 0;
     }
 
 #endif // MACCEL_DEBUG
