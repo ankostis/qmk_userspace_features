@@ -20,11 +20,14 @@ static uint32_t maccel_timer;
 #ifndef MACCEL_LIMIT
 #    define MACCEL_LIMIT 0.2 // (M) lower limit of accel curve (minimum acceleration factor)
 #endif
+#ifndef MACCEL_LIMIT_UPPER
+#    define MACCEL_LIMIT_UPPER 1 // upper limit of accel curve, recommended to leave at 1; adjust DPI setting instead.
+#endif
 #ifndef MACCEL_CPI_THROTTLE_MS
 #    define MACCEL_CPI_THROTTLE_MS 200 // milliseconds to wait between requesting the device's current DPI
 #endif
-#ifndef MACCEL_LIMIT_UPPER
-#    define MACCEL_LIMIT_UPPER 1 // upper limit of accel curve, recommended to leave at 1; adjust DPI setting instead.
+#ifndef MACCEL_ROUNDING_CURRY_TIMEOUT_MS
+#    define MACCEL_ROUNDING_CURRY_TIMEOUT_MS 300 // Elapsed time after which quantization error gets reset.
 #endif
 
 maccel_config_t g_maccel_config = {
@@ -107,6 +110,9 @@ report_mouse_t pointing_device_task_maccel(report_mouse_t mouse_report) {
     const uint16_t delta_time = timer_elapsed32(maccel_timer);
     // skip maccel maths if report = 0, or if maccel not enabled.
     if ((mouse_report.x == 0 && mouse_report.y == 0) || !g_maccel_config.enabled) {
+        if (report_elapsed_time > MACCEL_ROUNDING_CURRY_TIMEOUT_MS) {
+            rounding_carry_x = rounding_carry_y = 0;
+        }
         return mouse_report;
     }
     // reset timer:
