@@ -117,9 +117,6 @@ report_mouse_t pointing_device_task_maccel(report_mouse_t mouse_report) {
     }
     // reset timer:
     maccel_timer = timer_read32();
-    // Reset carry when pointer swaps direction, to follow user's hand.
-    if (mouse_report.x * rounding_carry_x < 0) rounding_carry_x = 0;
-    if (mouse_report.y * rounding_carry_y < 0) rounding_carry_y = 0;
     // Limit expensive calls to get device cpi settings only when mouse stationary for > 200ms.
     static uint16_t device_cpi = 300;
     if (delta_time > MACCEL_CPI_THROTTLE_MS) {
@@ -141,7 +138,10 @@ report_mouse_t pointing_device_task_maccel(report_mouse_t mouse_report) {
     // acceleration factor: f(v) = 1 - (1 - M) / {1 + e^[K(v - S)]}^(G/K):
     // Generalised Sigmoid Function, see https://www.desmos.com/calculator/k9vr0y2gev
     const float maccel_factor = MACCEL_LIMIT_UPPER - (MACCEL_LIMIT_UPPER - m) / powf(1 + expf(k * (velocity - s)), g / k);
-    // multiply mouse reports by acceleration factor, and account for previous quantization errors:
+    // Reset carry when pointer swaps direction, to follow promptly user's hand.
+    if (mouse_report.x * rounding_carry_x < 0) rounding_carry_x = 0;
+    if (mouse_report.y * rounding_carry_y < 0) rounding_carry_y = 0;
+    // Multiply mouse reports by acceleration factor, and account for previous quantization carry.
     const float new_x = rounding_carry_x + maccel_factor * mouse_report.x;
     const float new_y = rounding_carry_y + maccel_factor * mouse_report.y;
     // Accumulate any difference from next integer (quantization).
