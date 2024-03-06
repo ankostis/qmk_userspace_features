@@ -97,6 +97,7 @@ void maccel_toggle_enabled(void) {
 #define CONSTRAIN_REPORT(val) (mouse_xy_report_t) _CONSTRAIN(val, XY_REPORT_MIN, XY_REPORT_MAX)
 
 report_mouse_t pointing_device_task_maccel(report_mouse_t mouse_report) {
+    // rounding carry to recycling dropped floats from int mouse reports, to smoothen low speed movements (credit @ankostis)
     static float rounding_carry_x = 0;
     static float rounding_carry_y = 0;
     // time since last mouse report:
@@ -124,7 +125,13 @@ report_mouse_t pointing_device_task_maccel(report_mouse_t mouse_report) {
     // correct raw velocity for dpi
     const float velocity = dpi_correction * velocity_raw;
     // calculate mouse acceleration factor: f(dv) = c - ((c-1) / ((1 + e^(x(x - b)) * a/z)))
-    const float maccel_factor = 1.1 - (1.1 - g_maccel_config.limit) / powf(1 + expf(g_maccel_config.takeoff * (velocity - g_maccel_config.limit)), g_maccel_config.growth_rate / g_maccel_config.takeoff);
+    const float k = g_maccel_config.takeoff;
+    const float g = g_maccel_config.growth_rate;
+    const float s = g_maccel_config.offset;
+    const float m = g_maccel_config.limit;
+    // acceleration factor: y(x) = M - (M - 1) / {1 + e^[K(x - S)]}^(G/K)
+    // Generalised Sigmoid Function, see https://www.desmos.com/calculator/xkhejelty8
+    const float maccel_factor = 1.1 - (1.1 - m) / powf(1 + expf(k * (velocity - s)), g / k);
     // DPI-scale also mouse-report x, y and account old quantization errors.
     const float new_x = rounding_carry_x + maccel_factor * mouse_report.x;
     const float new_y = rounding_carry_y + maccel_factor * mouse_report.y;
