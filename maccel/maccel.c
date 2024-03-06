@@ -6,8 +6,6 @@
 #include "maccel.h"
 #include "math.h"
 
-static uint32_t maccel_timer;
-
 /**
  * MACCEL_CPI (C)
  *
@@ -19,32 +17,33 @@ static uint32_t maccel_timer;
  * It can be considered a device specific parameter
  * (apart from a user-comfort control).
  *
- * lower/higher value --> pointer speedier/slower
+ * --/++ value --> pointer speedier/slower
  */
 #ifndef MACCEL_CPI
 #    ifdef POINTING_DEVICE_DRIVER_pmw3360
-#        define MACCEL_CPI 220.0
+#        define MACCEL_CPI 180.0
 #    elif POINTING_DEVICE_DRIVER_cirque_pinnacle_spi
-#        define MACCEL_CPI 220.0
+#        define MACCEL_CPI 180.0
 #    else
 #        warning "Unsupported pointing device driver! Please manually set the scaling parameter MACCEL_CPI to achieve a consistent acceleration curve!"
-#        define MACCEL_CPI 220.0
+#        define MACCEL_CPI 180.0
 #    endif
 #endif
 #ifdef MACCEL_SCALE
 #  error "You must rename MACCEL_SCALE as MACCEL_CPI in your `config.h`!"
 #endif // MACCEL_SCALE
 #ifndef MACCEL_TAKEOFF
-#    define MACCEL_TAKEOFF 4.44 // (K) lower/higher value = curve starts more smoothly/abrubtly
+// https://www.desmos.com/calculator/te5hi9za4c
+#    define MACCEL_TAKEOFF     1300    // (K) --/++ value --> curve starts smoothlier/abruptlier
 #endif
 #ifndef MACCEL_GROWTH_RATE
-#    define MACCEL_GROWTH_RATE 0.5 // (G) lower/higher value = curve reaches its upper limit slower/faster
+#    define MACCEL_GROWTH_RATE 600     // (M) --/++ value --> max limit reached slower/faster
 #endif
 #ifndef MACCEL_OFFSET
-#    define MACCEL_OFFSET 1.1 // (S) lower/higher value = acceleration kicks in earlier/later
+#    define MACCEL_OFFSET      0.0048  // (S) --/++ value --> growth kicks in earlier/later
 #endif
 #ifndef MACCEL_LIMIT
-#    define MACCEL_LIMIT 6.0 // (M) upper limit of accel curve (maximum acceleration factor)
+#    define MACCEL_LIMIT       9.6     // (M) maximum acceleration factor
 #endif
 #ifndef MACCEL_CPI_THROTTLE_MS
 #    define MACCEL_CPI_THROTTLE_MS 200 // milliseconds to wait between requesting the device's current DPI
@@ -139,50 +138,51 @@ void maccel_toggle_enabled(void) {
 #define CONSTRAIN_REPORT(val) (mouse_xy_report_t) _CONSTRAIN(val, XY_REPORT_MIN, XY_REPORT_MAX)
 
 report_mouse_t pointing_device_task_maccel(report_mouse_t mouse_report) {
+    static uint32_t last_report_time;
+    static uint32_t last_move_time = 0;
     static float rounding_carry_x = 0;
     static float rounding_carry_y = 0;
 
-    const uint16_t time_delta = timer_elapsed32(maccel_timer);
+    const uint16_t report_t_delta = timer_elapsed32(last_report_time);
+    last_report_time = timer_read32();
+    const uint16_t move_t_delta = timer_elapsed32(last_move_time);
 
     if ((mouse_report.x == 0 && mouse_report.y == 0) || !g_maccel_config.enabled) {
-        if (time_delta > MACCEL_ROUNDING_CURRY_TIMEOUT_MS) {
-            rounding_carry_x = rounding_carry_y = 0;
-        }
         return mouse_report;
     }
 
-    maccel_timer = timer_read32();
-
-    // Reset carry when pointer swaps direction, to follow user's hand.
-    if (mouse_report.x * rounding_carry_x < 0) rounding_carry_x = 0;
-    if (mouse_report.y * rounding_carry_y < 0) rounding_carry_y = 0;
+    last_move_time = timer_read32();
 
     // Avoid expensive call to get-device-cpi unless mouse stationary for > 200ms.
     static uint16_t device_dpi = 300;
-    if (time_delta > MACCEL_CPI_THROTTLE_MS) {
+    // if (report_t_delta > MACCEL_CPI_THROTTLE_MS) {
+    if (move_t_delta > MACCEL_CPI_THROTTLE_MS) {
         device_dpi = pointing_device_get_cpi();
         // do the junk-fix until merge with qbk-upstream
         pointing_device_set_cpi(device_dpi);
+    }
+    if (move_t_delta > MACCEL_ROUNDING_CURRY_TIMEOUT_MS) {
+        rounding_carry_x = rounding_carry_y = 0;
     }
 
     // Dump x & y movements in 10,000th of an inch.
     // Ie. for a typical ball speed x1 inch/sec and pointer-task duty-cycle 1ms,
     // it should print 10.
-    const float v_inch_x = (float) mouse_report.x / device_dpi / time_delta;
-    const float v_inch_y = (float) mouse_report.y / device_dpi / time_delta;
-    printf("MACCEL: DPI:%5i Vinch: %6.3f\n",
-    device_dpi, v_inch_x * 10000);
-    printf("MACCEL: DPI:%5i Vinch: %6.3f\n",
-    device_dpi, v_inch_y * 10000);
+    const float d_inch_x = (float) mouse_report.x / device_dpi;
+    const float d_inch_y = (float) mouse_report.y / device_dpi;
+    const float v_inch_x =  d_inch_x / report_t_delta;
+    const float v_inch_y =  d_inch_y / report_t_delta;
+    printf("MACCEL: DPI:%5i Dinch: %7.3f Vinch: %7.3f\n",
+    device_dpi, v_inch_x * 10000, v_inch_x * 10000);
+    printf("MACCEL: DPI:%5i Dinch: %7.3f Vinch: %7.3f\n",
+    device_dpi, d_inch_y * 10000, v_inch_y * 10000);
 
     const mouse_xy_report_t x_dots = mouse_report.x;
     const mouse_xy_report_t y_dots = mouse_report.y;
     // euclidean distance: sqrt(x^2 + y^2)
     const float distance_dots = sqrtf(x_dots * x_dots + y_dots * y_dots);
     const float distance_inch = distance_dots / device_dpi;
-    const float velocity_inch = distance_inch / time_delta;
-    // Scale velocity in the range where the acceleration curve grows.
-    const float velocity = velocity_inch;
+    const float velocity = distance_inch / report_t_delta;
     // acceleration factor: y(x) = M - (M - 1) / {1 + e^[K(x - S)]}^(G/K)
     // Design generalised sigmoid: https://www.desmos.com/calculator/grd1ox94hm
     const float k             = g_maccel_config.takeoff;
@@ -190,6 +190,9 @@ report_mouse_t pointing_device_task_maccel(report_mouse_t mouse_report) {
     const float s             = g_maccel_config.offset;
     const float m             = g_maccel_config.limit;
     const float maccel_factor = m - (m - 1) / powf(1 + expf(k * (velocity - s)), g / k);
+    // Reset carry when pointer swaps direction, to quickly follow user's hand.
+    if (mouse_report.x * rounding_carry_x < 0) rounding_carry_x = 0;
+    if (mouse_report.y * rounding_carry_y < 0) rounding_carry_y = 0;
     // Convert mouse-report.x/y also to inches and account quantization carry.
     const float de_cpi_n_scale = g_maccel_config.scaling / device_dpi;
     const float x_new          = rounding_carry_x + maccel_factor * x_dots * de_cpi_n_scale;
