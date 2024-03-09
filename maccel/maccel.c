@@ -48,7 +48,7 @@ maccel_config_t g_maccel_config = {
 #        define MACCEL_OFFSET_STEP 0.1f
 #    endif
 #    ifndef MACCEL_LIMIT_STEP
-#        define MACCEL_LIMIT_STEP 0.1f
+#        define MACCEL_LIMIT_STEP 0.01f
 #    endif
 #endif
 
@@ -78,7 +78,7 @@ void maccel_set_offset(float val) {
     g_maccel_config.offset = val;
 }
 void maccel_set_limit(float val) {
-    if (val >= 1) { // limit less than 1 leads to nonsensical results
+    if (val >= 0) {
         g_maccel_config.limit = val;
     }
 }
