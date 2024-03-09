@@ -7,6 +7,7 @@ import pickle
 import re
 import subprocess as sbp
 import sys
+import threading
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -21,8 +22,8 @@ from plotly import graph_objects as go
 from plotly.subplots import make_subplots
 
 # %%
-logging.basicConfig(force=True)
-log = logging.getLogger("parmacmouse")
+logging.basicConfig(level=logging.INFO, force=True)
+log = logging.getLogger("parsemouse")
 
 # %%
 cols = "DPI Dinch Vinch".split()
@@ -67,7 +68,7 @@ def parsing_console(f, regex=regex, parsers=parsers):
 
 
 # %%
-fname = Path("parsemouse-qmkconsole-dv_inch_per_dpi.log")
+fname = Path("parsemouse-qmkconsole-dv_inch_per_dpi")
 
 try:
     with open(fname.with_suffix(".pickle"), "rb") as f:
@@ -143,8 +144,6 @@ fig.update_yaxes(
     rangemode="tozero",
     secondary_y=True,
 )
-fig = go.FigureWidget(fig)
-display(fig, show_logs_btn, logs_text)
 
 
 def update_fig(fig, df, dpi="?"):
@@ -167,32 +166,58 @@ def update_fig(fig, df, dpi="?"):
     fig.layout.title = f"Current dpi: {dpi}, #samples: {df[col].sum()}"
 
 
+fig = go.FigureWidget(fig)
 update_fig(fig, df)
+break_loop_btn = w.Button(description="STOP qmk console", icon="ban")
 
-# f = sys.stdin
+
+def break_loop(_btn):
+    break_loop.var = True
+
+break_loop_btn.on_click(break_loop)
+# %%
+display(fig, w.HBox((break_loop_btn, show_logs_btn)), logs_text)
+
+# %%
+break_loop.var = False
+break_loop_btn.button_style = "success"
+
+def pump_qmk_console(proc):
+    # f = sys.stdin
+    f = proc.stdout
+    t_last = time.time()
+    try:
+        for dpi, *values in parsing_console(f, regex, parsers):
+            if break_loop.var:
+                break
+            data.update(
+                [(dpi, col, v) for col, v in zip(cols[1:], values, strict=True)]
+            )
+
+            t = time.time()
+            elapsed = t - t_last
+            if elapsed < plot_interval_sec:
+                continue
+            t_last = t
+
+            # print(dpi, values)
+
+            df = to_df(data)
+            with fig.batch_update():
+                update_fig(fig, df, dpi)
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        log.info("Loop ended.")
+        proc.terminate()
+        break_loop_btn.button_style = ""
+
+
 proc = sbp.Popen(["qmk", "console"], stdout=sbp.PIPE, universal_newlines=True)
-f = proc.stdout
-t_last = time.time()
-try:
-    for dpi, *values in parsing_console(f, regex, parsers):
-        data.update([(dpi, col, v) for col, v in zip(cols[1:], values, strict=True)])
+thread = threading.Thread(target=pump_qmk_console, args=[proc])
 
-        t = time.time()
-        elapsed = t - t_last
-        if elapsed < plot_interval_sec:
-            continue
-        t_last = t
-
-        # print(dpi, values)
-
-        df = to_df(data)
-        with fig.batch_update():
-            update_fig(fig, df, dpi)
-
-except KeyboardInterrupt:
-    pass
-finally:
-    proc.terminate()
+thread.start()
 
 # %%
 # View the above live in nbviewer:
