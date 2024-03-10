@@ -1,6 +1,6 @@
 # Mouse acceleration
 
-This feature was born from the frustration of not having a tweakable acceleration curve that could work between OSes and hosts and be specific to one device, catalysed by multiple users expressing interest.
+This feature was born from the frustration of not having a tweakable acceleration curve that could work between OSes and hosts and be specific to one device, catalyzed by multiple users expressing interest.
 
 ## Installation
 
@@ -74,18 +74,18 @@ See the section on runtime adjusting by keycodes and on via support for installa
 
 Several characteristics of the acceleration curve can be tweaked by adding relevant defines to `config.h`:
 ```c
-#define MACCEL_TAKEOFF 2.0      // lower/higher value = curve takes off more smoothly/abrubtly
+#define MACCEL_TAKEOFF 2.0      // lower/higher value = curve takes off more smoothly/abruptly
 #define MACCEL_GROWTH_RATE 0.25 // lower/higher value = curve reaches its upper limit slower/faster 
 #define MACCEL_OFFSET 2.2       // lower/higher value = acceleration kicks in earlier/later
-#define MACCEL_LIMIT 0.2        // lower limit of accel curve (ninimum acceleration factor)
+#define MACCEL_LIMIT 0.2        // lower limit of accel curve (minimum acceleration factor)
 ```
 [![](assets/accel_curve.png)](https://www.desmos.com/calculator/k9vr0y2gev)
 
 The graph above shows the acceleration curve. You can interpret this graph as follows: the horizontal axis is input velocity (ie. how fast you are physically moving your mouse/trackball/trackpad); the vertical axis is the acceleration factor, which is the factor with which the input speed will be multiplied, resulting in your new output speed on screen. You can also understand this as a DPI scaling factor: the curve maxes out at 1, meaning your mouse sensitivity will never go higher than your default DPI setting; at the start of the curve your sensitivity is scaled down to a minimum that can be set by the LIMIT variable. The limit in this example is 0.2, which means at the lowest speeds your mouse sensitivity is scaled down to an equivalent of 0.2 times your default DPI.
 
-If you click on the image of the curve, you will be linked to desmos, where you can play around with the variables to understand how each of them affect the shape of the curve. But in short:
+If you click on the image of the curve, you will be linked to Desmos, where you can play around with the variables to understand how each of them affect the shape of the curve. But in short:
 
-The TAKEOFF variable controls how smoothly or abrubtly the acceleration curve takes off. A higher value will make it take off more abrubtly, a lower value smoothens out the start of the curve.
+The TAKEOFF variable controls how smoothly or abruptly the acceleration curve takes off. A higher value will make it take off more abruptly, a lower value smoothens out the start of the curve.
 
 The GROWTH_RATE variable sets the growth rate of the acceleration curve. A lower value will result in a flatter curve which takes longer to reach its LIMIT. A higher value will result in a steeper curve, which will reach its LIMIT faster.
 
@@ -103,6 +103,16 @@ To aid in dialing in your settings just right, a debug mode exists to print math
  */
 #undef PRINTF_SUPPORT_DECIMAL_SPECIFIERS
 #define PRINTF_SUPPORT_DECIMAL_SPECIFIERS 1
+```
+
+The debug console will print your current DPI setting and variable settings, as well as the acceleration factor, the input and output velocity, and the input and output distance.
+
+Finally, linearity across different user-CPI settings works better when pointer task throttling is enforced, ie. add something like this in your `config.h`:
+
+```c
+// Fixed pointer-task frequency needed for consistent acceleration across different user CPIs.
+#undef  POINTING_DEVICE_TASK_THROTTLE_MS
+#define POINTING_DEVICE_TASK_THROTTLE_MS 5
 ```
 
 ## Runtime adjusting of curve parameters by keycodes (optional)
@@ -219,7 +229,7 @@ Finally, after flashing the firmware to your board, load the custom via definiti
   - Enable in `rules.mk`
   - Shim `keyboard_post_init_user`
   - Set user eeprom data block size
-  - Create custom via json and sideload it in the web app
+  - Create custom via json and side-load it in the web app
 
 ## Limitations
 
@@ -234,27 +244,25 @@ Sensor compatibility:
 * Cirque trackpad: compatible, limited testing
 * Azoteq: still some issues to be resolved, not yet compatible
 * No other QMK compatible sensors have been tested so far. We expect most sensors to work fine with maccel, but there could always be unexpected driver/firmware related conflicts we are not aware of.
-* If you are using maccel succesfully (or unsucessfully) with a sensor that isn't listed here, we'd love to hear!
+* If you are using maccel successfully (or unsuccessfully) with a sensor that isn't listed here, we'd love to hear!
 
 MCU compatibility:
 * This feature makes extensive use of floating point operations, and as such is not likely to work on AVR processors. So far tested only on RP2040!
 
-
-It is currently unknown how the unthrottled polling when used with `POINTING_DEVICE_MOTION_PIN` would interact with the expensive calculations.
+It is currently unknown how the un-throttled polling when used with `POINTING_DEVICE_MOTION_PIN` would interact with the expensive calculations.
 
 ## Breaking changes
 
-### //2024 ?? WIP
+### 2024 March 08
 
 This new release changes the acceleration curve from a up-scaling curve to a down-scaling curve, to match how other acceleration tools work, and to avoid forcing users to set a very low DPI setting - this had been the goal from the start, but it took until now to overcome the technical challenges to make this work smoothly.
 
 See the configuration bit of this readme for an explanation of how the new curve works. This change means that you will have to readjust your variables; but do not worry, it is fairly easy to get this dialed in to *exactly* to how you had it set before:
-* First, change your default DPI: NEW-DPI = old-dpi * old-limit
-* Second, change your LIMIT variable (which is now lower instead of upper limit): NEW LIMIT = old-dpi / NEW-DPI
+
+* First, change your default DPI: $DPI_{new} = DPI_{old} * limit_{old}$
+* Second, change your LIMIT variable (which is now lower instead of upper limit): $limit_{new} = \dfrac{DPI_{old}}{DPI_{new}}$
 * Your other variables can remain the same.
 * If using via, make sure to clear EEPROM for the new settings to take effect.
-* //additional instructions by @burkfers in case there is more technical things that need changing.
-
 
 ### 2024 March 1
 
@@ -278,7 +286,7 @@ If you set GROWTH_RATE to your previous value of `STEEPNESS` and keep `TAKEOFF` 
 Thanks to everyone who helped!
 Including, but not limited to:
 - Wimads (@wimads) and burkfers (@burkfers) wrote most of the code
-- ankostis (@ankostis) for catalysing discussion about improving the acceleration curve and providing several enhancements
+- ankostis (@ankostis) for catalyzing discussion about improving the acceleration curve and providing several enhancements
 - Quentin (@balanstik) for insightful commentary on the math, and testing
 - ouglop (@ouglop) for insightful commentary on the math
 - Drashna Jael're (@drashna) for coding tips and their invaluable bag of magic C tricks

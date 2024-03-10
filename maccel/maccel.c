@@ -9,7 +9,7 @@
 static uint32_t maccel_timer;
 
 #ifndef MACCEL_TAKEOFF
-#    define MACCEL_TAKEOFF 2.0 // lower/higher value = curve starts more smoothly/abrubtly
+#    define MACCEL_TAKEOFF 2.0 // lower/higher value = curve starts more smoothly/abruptly
 #endif
 #ifndef MACCEL_GROWTH_RATE
 #    define MACCEL_GROWTH_RATE 0.25 // lower/higher value = curve reaches its upper limit slower/faster
@@ -48,7 +48,7 @@ maccel_config_t g_maccel_config = {
 #        define MACCEL_OFFSET_STEP 0.1f
 #    endif
 #    ifndef MACCEL_LIMIT_STEP
-#        define MACCEL_LIMIT_STEP 0.1f
+#        define MACCEL_LIMIT_STEP 0.01f
 #    endif
 #endif
 
@@ -78,7 +78,7 @@ void maccel_set_offset(float val) {
     g_maccel_config.offset = val;
 }
 void maccel_set_limit(float val) {
-    if (val >= 1) { // limit less than 1 leads to nonsensical results
+    if (val >= 0) {
         g_maccel_config.limit = val;
     }
 }
@@ -114,7 +114,7 @@ report_mouse_t pointing_device_task_maccel(report_mouse_t mouse_report) {
     // Reset carry when pointer swaps direction, to follow user's hand.
     if (mouse_report.x * rounding_carry_x < 0) rounding_carry_x = 0;
     if (mouse_report.y * rounding_carry_y < 0) rounding_carry_y = 0;
-    // Limit expensive calls to get device cpi settings only when mouse stationay for > 200ms.
+    // Limit expensive calls to get device cpi settings only when mouse stationary for > 200ms.
     static uint16_t device_cpi = 300;
     if (delta_time > MACCEL_CPI_THROTTLE_MS) {
         device_cpi = pointing_device_get_cpi();
@@ -198,12 +198,12 @@ bool process_record_maccel(uint16_t keycode, keyrecord_t *record, uint16_t takeo
 }
 #else
 bool process_record_maccel(uint16_t keycode, keyrecord_t *record, uint16_t takeoff, uint16_t growth_rate, uint16_t offset, uint16_t limit) {
-    // provide a do-nothing keyrecord function so a user doesn't need to unshim when disabling the keycodes
+    // provide a do-nothing keyrecord function so a user doesn't need to un-shim when disabling the keycodes
     return true;
 }
 #endif
 
-// provide weak do-nothing shims so users do not need to unshim when diabling via
+// provide weak do-nothing shims so users do not need to un-shim when disabling via
 __attribute__((weak)) void keyboard_post_init_maccel(void) {
     return;
 }
