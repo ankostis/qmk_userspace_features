@@ -76,7 +76,7 @@ To minimize the chance of maxing out the mouse reports, it is recommended to def
 See the section on runtime adjusting by keycodes and on via support for installation steps for these optional features.
 
 ## Configuration
-Before configuring maccel, make sure you have turned off your OS acceleration settings: in mouse settings uncheck pointer precision (windows). And make sure there isn't any 3rd party mouse acceleration softwware running. 
+Before configuring maccel, make sure you have turned off your OS acceleration settings: in mouse settings uncheck pointer precision (windows). And make sure there isn't any 3rd party mouse acceleration software running. 
 
 Several characteristics of the acceleration curve can be tweaked by adding relevant defines to `config.h`:
 ```c
@@ -111,6 +111,16 @@ A good starting point for tweaking your settings, is to set your default DPI sli
  */
 #undef PRINTF_SUPPORT_DECIMAL_SPECIFIERS
 #define PRINTF_SUPPORT_DECIMAL_SPECIFIERS 1
+```
+
+The debug console will print your current DPI setting and variable settings, as well as the acceleration factor, the input and output velocity, and the input and output distance.
+
+Finally, linearity across different user-CPI settings works better when pointer task throttling is enforced, ie. add something like this in your `config.h`:
+
+```c
+// Fixed pointer-task frequency needed for consistent acceleration across different user CPIs.
+#undef  POINTING_DEVICE_TASK_THROTTLE_MS
+#define POINTING_DEVICE_TASK_THROTTLE_MS 5
 ```
 
 ## Runtime adjusting of curve parameters by keycodes (optional)
